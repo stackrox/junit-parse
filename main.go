@@ -47,7 +47,7 @@ func main() {
 	slackMsg := convertJunitToSlack(junitFiles...)
 	if slackMsg == nil {
 		log.Printf("warning: no slack message set")
-		return
+		slackMsg = []slack.Attachment{}
 	}
 
 	b, err := json.Marshal(slackMsg)
