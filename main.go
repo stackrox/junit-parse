@@ -86,85 +86,12 @@ func convertJunitToSlack(junitFiles ...*junit.Suites) []slack.Attachment {
 				titleSectionBlock := slack.NewSectionBlock(titleTextBlock, nil, nil)
 				failedTestsBlocks = append(failedTestsBlocks, titleSectionBlock)
 
-				// Slack has a 3000-character limit for (non-field) text objects
-				failureMessage := failure.Message
-				if len(failureMessage) > 3000 {
-					failureMessage = failureMessage[:3000]
-				}
-
-				// Slack has a 3000-character limit for (non-field) text objects
-				failureValue := failure.Value
-				if len(failureValue) > 3000 {
-					failureValue = failureValue[:3000]
-				}
-
-				// Add some formatting to the failure title
-				failureTitleTextBlock := slack.NewTextBlockObject("plain_text", title, false, false)
-				failureTitleHeaderBlock := slack.NewHeaderBlock(failureTitleTextBlock)
-
-				// If there's no failure message or value, use a different message (this shouldn't be the usual case)
-				if failureMessage == "" {
-					if failureValue == "" {
-						log.Printf("No junit failure message or value for %s", title)
-						continue
-					}
-
-					infoTextBlock := slack.NewTextBlockObject("mrkdwn", "*Info*", false, false)
-					infoSectionBlock := slack.NewSectionBlock(infoTextBlock, nil, nil)
-
-					if len(failureValue) > 3000 {
-						failureValue = failureValue[:3000]
-					}
-					failureValueTextBlock := slack.NewTextBlockObject("plain_text", failureValue, false, false)
-					failureValueSectionBlock := slack.NewSectionBlock(failureValueTextBlock, nil, nil)
-
-					failureAttachment := slack.Attachment{
-						Color: "#bb2124",
-						Blocks: slack.Blocks{BlockSet: []slack.Block{
-							failureTitleHeaderBlock,
-							infoSectionBlock,
-							failureValueSectionBlock,
-						}},
-					}
-					attachments = append(attachments, failureAttachment)
+				failureAttachment, err := failureToAttachment(title, failure)
+				if err != nil {
+					log.Printf("skipping %s: %v", title, err)
 					continue
 				}
 
-				messageTextBlock := slack.NewTextBlockObject("mrkdwn", "*Message*", false, false)
-				messageSectionBlock := slack.NewSectionBlock(messageTextBlock, nil, nil)
-
-				failureMessageTextBlock := slack.NewTextBlockObject("plain_text", failureMessage, false, false)
-				failureMessageSectionBlock := slack.NewSectionBlock(failureMessageTextBlock, nil, nil)
-
-				if failureValue == "" {
-					failureAttachment := slack.Attachment{
-						Color: "#bb2124",
-						Blocks: slack.Blocks{BlockSet: []slack.Block{
-							failureTitleHeaderBlock,
-							messageSectionBlock,
-							failureMessageSectionBlock,
-						}},
-					}
-					attachments = append(attachments, failureAttachment)
-					continue
-				}
-
-				additionalInfoTextBlock := slack.NewTextBlockObject("mrkdwn", "*Additional Info*", false, false)
-				additionalInfoSectionBlock := slack.NewSectionBlock(additionalInfoTextBlock, nil, nil)
-
-				failureValueTextBlock := slack.NewTextBlockObject("plain_text", failureValue, false, false)
-				failureValueSectionBlock := slack.NewSectionBlock(failureValueTextBlock, nil, nil)
-
-				failureAttachment := slack.Attachment{
-					Color: "#bb2124",
-					Blocks: slack.Blocks{BlockSet: []slack.Block{
-						failureTitleHeaderBlock,
-						messageSectionBlock,
-						failureMessageSectionBlock,
-						additionalInfoSectionBlock,
-						failureValueSectionBlock,
-					}},
-				}
 				attachments = append(attachments, failureAttachment)
 
 				// We've reached the desired message limit. We need to break out of all the loops
@@ -193,4 +120,80 @@ pushFinalSlackAttachments:
 	attachments = append([]slack.Attachment{failedTestsAttachment}, attachments...)
 
 	return attachments
+}
+
+func failureToAttachment(title string, failure *junit.Failure) (slack.Attachment, error) {
+	// Slack has a 3000-character limit for (non-field) text objects
+	failureMessage := failure.Message
+	if len(failureMessage) > 3000 {
+		failureMessage = failureMessage[:3000]
+	}
+
+	// Slack has a 3000-character limit for (non-field) text objects
+	failureValue := failure.Value
+	if len(failureValue) > 3000 {
+		failureValue = failureValue[:3000]
+	}
+
+	// Add some formatting to the failure title
+	failureTitleTextBlock := slack.NewTextBlockObject("plain_text", title, false, false)
+	failureTitleHeaderBlock := slack.NewHeaderBlock(failureTitleTextBlock)
+
+	if failureMessage == "" && failureValue == "" {
+		return slack.Attachment{}, fmt.Errorf("no junit failure message or value for %s", title)
+	}
+
+	if failureMessage == "" {
+		infoTextBlock := slack.NewTextBlockObject("mrkdwn", "*Info*", false, false)
+		infoSectionBlock := slack.NewSectionBlock(infoTextBlock, nil, nil)
+
+		failureValueTextBlock := slack.NewTextBlockObject("plain_text", failureValue, false, false)
+		failureValueSectionBlock := slack.NewSectionBlock(failureValueTextBlock, nil, nil)
+
+		failureAttachment := slack.Attachment{
+			Color: "#bb2124",
+			Blocks: slack.Blocks{BlockSet: []slack.Block{
+				failureTitleHeaderBlock,
+				infoSectionBlock,
+				failureValueSectionBlock,
+			}},
+		}
+		return failureAttachment, nil
+	}
+
+	messageTextBlock := slack.NewTextBlockObject("mrkdwn", "*Message*", false, false)
+	messageSectionBlock := slack.NewSectionBlock(messageTextBlock, nil, nil)
+
+	failureMessageTextBlock := slack.NewTextBlockObject("plain_text", failureMessage, false, false)
+	failureMessageSectionBlock := slack.NewSectionBlock(failureMessageTextBlock, nil, nil)
+
+	if failureValue == "" {
+		failureAttachment := slack.Attachment{
+			Color: "#bb2124",
+			Blocks: slack.Blocks{BlockSet: []slack.Block{
+				failureTitleHeaderBlock,
+				messageSectionBlock,
+				failureMessageSectionBlock,
+			}},
+		}
+		return failureAttachment, nil
+	}
+
+	additionalInfoTextBlock := slack.NewTextBlockObject("mrkdwn", "*Additional Info*", false, false)
+	additionalInfoSectionBlock := slack.NewSectionBlock(additionalInfoTextBlock, nil, nil)
+
+	failureValueTextBlock := slack.NewTextBlockObject("plain_text", failureValue, false, false)
+	failureValueSectionBlock := slack.NewSectionBlock(failureValueTextBlock, nil, nil)
+
+	failureAttachment := slack.Attachment{
+		Color: "#bb2124",
+		Blocks: slack.Blocks{BlockSet: []slack.Block{
+			failureTitleHeaderBlock,
+			messageSectionBlock,
+			failureMessageSectionBlock,
+			additionalInfoSectionBlock,
+			failureValueSectionBlock,
+		}},
+	}
+	return failureAttachment, nil
 }
