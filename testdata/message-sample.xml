@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="MyTest" tests="3" skipped="0" failures="1" errors="0" timestamp="2022-10-11T10:19:06" hostname="myhost" time="1.00">
+    <properties/>
+    <testcase name="My Test Case 1" classname="MyTest" time="1.00">
+        <system-out>This is stdout for My Test Case 1</system-out>
+    </testcase>
+    <testcase name="My Test Case 2" classname="MyTest" time="1.00">
+        <system-out>This is stdout for My Test Case 2</system-out>
+    </testcase>
+    <testcase name="My Test Case 3" classname="MyTest" time="1.00">
+        <!-- Don't collapse this. It's intended to have an empty body -->
+        <failure message="Sometimes we only have a message with an empty body. My Test Case 3 message" type="ERROR"></failure>
+        <system-out>This is stderr for My Test Case 3</system-out>
+    </testcase>
+</testsuite>
