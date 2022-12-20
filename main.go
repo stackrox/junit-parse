@@ -123,14 +123,17 @@ pushFinalSlackAttachments:
 }
 
 func failureToAttachment(title string, failure *junit.Failure) (slack.Attachment, error) {
-	// Slack has a 3000-character limit for (non-field) text objects
 	failureMessage := failure.Message
-	if len(failureMessage) > 3000 {
-		failureMessage = failureMessage[:3000]
+	failureValue := failure.Value
+
+	if failureMessage == "" && failureValue == "" {
+		return slack.Attachment{}, fmt.Errorf("no junit failure message or value for %s", title)
 	}
 
 	// Slack has a 3000-character limit for (non-field) text objects
-	failureValue := failure.Value
+	if len(failureMessage) > 3000 {
+		failureMessage = failureMessage[:3000]
+	}
 	if len(failureValue) > 3000 {
 		failureValue = failureValue[:3000]
 	}
@@ -139,61 +142,57 @@ func failureToAttachment(title string, failure *junit.Failure) (slack.Attachment
 	failureTitleTextBlock := slack.NewTextBlockObject("plain_text", title, false, false)
 	failureTitleHeaderBlock := slack.NewHeaderBlock(failureTitleTextBlock)
 
-	if failureMessage == "" && failureValue == "" {
-		return slack.Attachment{}, fmt.Errorf("no junit failure message or value for %s", title)
+	failureAttachment := slack.Attachment{
+		Color:  "#bb2124",
+		Blocks: failureToBlocks(failureTitleHeaderBlock, failureMessage, failureValue),
+	}
+	return failureAttachment, nil
+}
+
+func failureToBlocks(failureTitleHeaderBlock *slack.HeaderBlock, messageText, valueText string) slack.Blocks {
+	if messageText == "" && valueText == "" {
+		return slack.Blocks{}
 	}
 
-	if failureMessage == "" {
+	if messageText == "" {
 		infoTextBlock := slack.NewTextBlockObject("mrkdwn", "*Info*", false, false)
 		infoSectionBlock := slack.NewSectionBlock(infoTextBlock, nil, nil)
 
-		failureValueTextBlock := slack.NewTextBlockObject("plain_text", failureValue, false, false)
+		failureValueTextBlock := slack.NewTextBlockObject("plain_text", valueText, false, false)
 		failureValueSectionBlock := slack.NewSectionBlock(failureValueTextBlock, nil, nil)
 
-		failureAttachment := slack.Attachment{
-			Color: "#bb2124",
-			Blocks: slack.Blocks{BlockSet: []slack.Block{
-				failureTitleHeaderBlock,
-				infoSectionBlock,
-				failureValueSectionBlock,
-			}},
-		}
-		return failureAttachment, nil
+		return slack.Blocks{BlockSet: []slack.Block{
+			failureTitleHeaderBlock,
+			infoSectionBlock,
+			failureValueSectionBlock,
+		}}
 	}
 
 	messageTextBlock := slack.NewTextBlockObject("mrkdwn", "*Message*", false, false)
 	messageSectionBlock := slack.NewSectionBlock(messageTextBlock, nil, nil)
 
-	failureMessageTextBlock := slack.NewTextBlockObject("plain_text", failureMessage, false, false)
+	failureMessageTextBlock := slack.NewTextBlockObject("plain_text", messageText, false, false)
 	failureMessageSectionBlock := slack.NewSectionBlock(failureMessageTextBlock, nil, nil)
 
-	if failureValue == "" {
-		failureAttachment := slack.Attachment{
-			Color: "#bb2124",
-			Blocks: slack.Blocks{BlockSet: []slack.Block{
-				failureTitleHeaderBlock,
-				messageSectionBlock,
-				failureMessageSectionBlock,
-			}},
-		}
-		return failureAttachment, nil
+	if valueText == "" {
+		return slack.Blocks{BlockSet: []slack.Block{
+			failureTitleHeaderBlock,
+			messageSectionBlock,
+			failureMessageSectionBlock,
+		}}
 	}
 
 	additionalInfoTextBlock := slack.NewTextBlockObject("mrkdwn", "*Additional Info*", false, false)
 	additionalInfoSectionBlock := slack.NewSectionBlock(additionalInfoTextBlock, nil, nil)
 
-	failureValueTextBlock := slack.NewTextBlockObject("plain_text", failureValue, false, false)
+	failureValueTextBlock := slack.NewTextBlockObject("plain_text", valueText, false, false)
 	failureValueSectionBlock := slack.NewSectionBlock(failureValueTextBlock, nil, nil)
 
-	failureAttachment := slack.Attachment{
-		Color: "#bb2124",
-		Blocks: slack.Blocks{BlockSet: []slack.Block{
-			failureTitleHeaderBlock,
-			messageSectionBlock,
-			failureMessageSectionBlock,
-			additionalInfoSectionBlock,
-			failureValueSectionBlock,
-		}},
-	}
-	return failureAttachment, nil
+	return slack.Blocks{BlockSet: []slack.Block{
+		failureTitleHeaderBlock,
+		messageSectionBlock,
+		failureMessageSectionBlock,
+		additionalInfoSectionBlock,
+		failureValueSectionBlock,
+	}}
 }
